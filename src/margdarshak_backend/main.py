@@ -1,16 +1,35 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
 from src.margdarshak_backend.core.config import settings
 from src.margdarshak_backend.api.routes import router as api_router
+from src.margdarshak_backend.core.database import db
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup logic (if any)
-    print("Starting up...")
+    # Startup logic
+    try:
+        logging.info("Connecting to MongoDB Atlas...")
+        await db.connect_db()
+        logging.info("Successfully connected to MongoDB Atlas")
+    except Exception as e:
+        logging.error(f"Failed to connect to MongoDB: {str(e)}")
+        raise
     yield
-    # Shutdown logic (if any)
-    print("Shutting down...")
+    # Shutdown logic
+    try:
+        logging.info("Closing MongoDB connection...")
+        await db.close_db()
+        logging.info("MongoDB connection closed")
+    except Exception as e:
+        logging.error(f"Error closing MongoDB connection: {str(e)}")
 
 app = FastAPI(
     title=settings.APP_NAME,
