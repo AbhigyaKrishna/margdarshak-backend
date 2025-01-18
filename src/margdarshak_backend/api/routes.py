@@ -1,7 +1,16 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 
+from margdarshak_backend.api.langflow import router as langflow_router
+
 router = APIRouter()
+
+# Include Langflow routes
+router.include_router(
+    langflow_router,
+    prefix="/langflow",
+    tags=["langflow"]
+)
 
 @router.get("/health")
 async def health_check() -> Dict[str, str]:
@@ -9,4 +18,4 @@ async def health_check() -> Dict[str, str]:
 
 @router.get("/")
 async def root() -> Dict[str, str]:
-    return {"message": "Welcome to FastAPI Backend"} 
+    return {"message": "Welcome to MargDarshak Backend"} 

@@ -9,6 +9,9 @@ dependencies = [
     "pydantic>=2.4.2",
     "pydantic-settings>=2.0.3",
     "python-dotenv>=1.0.0",
+    "langflow>=0.5.3",
+    "langchain>=0.0.350",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]

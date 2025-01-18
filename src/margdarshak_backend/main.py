@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from src.margdarshak_backend.core.config import settings
-from src.margdarshak_backend.api.routes import router as api_router
+from src.margdarshak_backend.api import api_router, langflow_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,10 +13,34 @@ async def lifespan(app: FastAPI):
     print("Shutting down...")
 
 app = FastAPI(
-    title="FastAPI Backend",
-    description="Backend API Template",
+    title=settings.APP_NAME,
+    description="Backend API",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    debug=settings.DEBUG_MODE,
+    openapi_tags=[
+        {
+            "name": "langflow",
+            "description": "AI Flow Operations",
+            "externalDocs": {
+                "description": "Langflow Documentation",
+                "url": "https://docs.langflow.org",
+            },
+        },
+        {
+            "name": "health",
+            "description": "Health check endpoints",
+        },
+    ],
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1,  # Hide schemas section by default
+        "displayRequestDuration": True,   # Show request duration
+        "filter": True,                   # Enable filtering operations
+        "syntaxHighlight.theme": "monokai"
+    }
 )
 
 # Configure CORS
@@ -29,4 +53,5 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(api_router, prefix="/api") 
+app.include_router(api_router, prefix=settings.API_V1_STR) 
+app.include_router(langflow_router, prefix=settings.API_V1_STR)
