@@ -4,7 +4,7 @@ from typing import Dict, Any
 import requests
 from pydantic import BaseModel
 
-from margdarshak_backend.core.config import settings
+from src.margdarshak_backend.core.config import settings
 
 router = APIRouter()
 
