@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from src.margdarshak_backend.core.config import settings
-from src.margdarshak_backend.api import api_router
+from src.margdarshak_backend.api.routes import router as api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
