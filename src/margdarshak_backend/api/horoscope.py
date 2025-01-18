@@ -57,3 +57,30 @@ async def get_daily_horoscope(
             status_code=500,
             detail=f"Error fetching horoscope: {str(e)}"
         )
+    
+@router.get("/monthly")
+async def get_monthly_horoscope(
+    sign: ZodiacSign
+) -> Dict[str, Any]:
+    """
+    Get monthly horoscope for a zodiac sign.
+    
+    Args:
+        sign: Zodiac sign
+    
+    Returns:
+        dict: Horoscope data including date and prediction
+    """
+    try:
+        response = requests.get(
+            f"https://horoscope-app-api.vercel.app/api/v1/get-horoscope/monthly",
+            params={"sign": sign}
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logging.error(f"Error fetching horoscope: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching horoscope: {str(e)}"
+        )
