@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 
-from langflow import router as langflow_router
+from src.margdarshak_backend.api.langflow import router as langflow_router
 
 router = APIRouter()
 
