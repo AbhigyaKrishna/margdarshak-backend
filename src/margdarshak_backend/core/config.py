@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str
     MONGODB_USERNAME: Optional[str] = None
     MONGODB_PASSWORD: Optional[str] = None
+
+    # Astrology API settings
+    ASTROLOGY_API_KEY: Optional[str] = None
     
     @property
     def mongodb_connection_string(self) -> str:

@@ -3,7 +3,7 @@ from typing import Dict, Any, List
 from datetime import datetime, time
 import logging
 
-from src.margdarshak_backend.models.horoscope import UserData
+from margdarshak_backend.models.user import UserData
 from src.margdarshak_backend.core.database import db
 
 router = APIRouter()
