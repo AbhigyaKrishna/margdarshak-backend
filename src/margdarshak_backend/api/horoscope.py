@@ -297,3 +297,82 @@ async def analyze_chart(request: ChartAnalysisRequest) -> Dict[str, Any]:
             detail=f"Error analyzing chart: {str(e)}"
         )
 
+@router.post("/gem-suggestion")
+async def get_gem_suggestion(user_id: str) -> Dict[str, Any]:
+    """
+    Get gemstone suggestions based on user's birth details from Vedic Rishi API.
+    
+    Args:
+        request: Contains user_id and optional language preference
+    
+    Returns:
+        dict: Gemstone suggestions and related information
+    """
+    try:
+        # Get user data from MongoDB
+        user_data = await db.get_db()["user_data"].find_one({"user_id": user_id})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User data not found")
+        
+        # Convert user data to model for validation
+        user = UserData(**user_data)
+        
+        # Get location coordinates
+        if user.city not in location:
+            raise HTTPException(status_code=400, detail="Invalid location")
+        latitude, longitude = location[user.city]
+        
+        # Extract date and time components
+        birth_date = user.date_of_birth
+        birth_time = user.time_of_birth
+        
+        # Prepare request payload
+        payload = {
+            "apiName": "basic_gem_suggestion",
+            "userData": {
+                "nameu": user.name,
+                "birth": f"{user.city}, {user.state}",
+                "day": birth_date.day,
+                "month": birth_date.month,
+                "year": birth_date.year,
+                "min": birth_time.minute,
+                "hour": birth_time.hour,
+                "language": "english",
+                "gender": user.gender.value,
+                "tzone": 5.5,  # IST
+                "country": "India",
+                "lat": latitude,
+                "lon": longitude
+            }
+        }
+        
+        # Call Vedic Rishi API
+        headers = {
+            'Content-Type': 'application/json',
+            'Origin': 'https://vedicrishi.in',
+            'Referer': 'https://vedicrishi.in/',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0'
+        }
+        
+        response = requests.post(
+            'https://workers.vedicrishi.in/vedicrishi',
+            headers=headers,
+            json=payload
+        )
+        response.raise_for_status()
+        
+        return response.json()
+        
+    except requests.RequestException as e:
+        logging.error(f"Error fetching gem suggestions: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching gem suggestions: {str(e)}"
+        )
+    except Exception as e:
+        logging.error(f"Error processing gem suggestions: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing gem suggestions: {str(e)}"
+        )
+
