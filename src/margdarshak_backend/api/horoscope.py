@@ -7,17 +7,13 @@ from enum import Enum
 from pydantic import BaseModel, Field, HttpUrl
 from PIL import Image
 import io
-import google.generativeai as genai
+from src.margdarshak_backend.core.gemini import model as gemini_model
 
 from margdarshak_backend.models.user import UserData
 from src.margdarshak_backend.core.database import db
 from src.margdarshak_backend.core.config import settings
 
 router = APIRouter()
-
-# Configure Gemini
-genai.configure(api_key=settings.GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
 
 class ZodiacSign(str, Enum):
     ARIES = "Aries"
@@ -277,7 +273,7 @@ async def analyze_chart(request: ChartAnalysisRequest) -> Dict[str, Any]:
         prompt = f"You are an expert astrologer. Analyze this {request.chart_type} astrological chart and provide insights about the planetary positions and their significance."
         
         # Generate response from Gemini
-        response = model.generate_content([prompt, img])
+        response = gemini_model.generate_content([prompt, img])
         response.resolve()
         
         return {
@@ -300,13 +296,14 @@ async def analyze_chart(request: ChartAnalysisRequest) -> Dict[str, Any]:
 @router.post("/gem-suggestion")
 async def get_gem_suggestion(user_id: str) -> Dict[str, Any]:
     """
-    Get gemstone suggestions based on user's birth details from Vedic Rishi API.
+    Get gemstone suggestions based on user's birth details from Vedic Rishi API,
+    enriched with detailed descriptions from Gemini.
     
     Args:
-        request: Contains user_id and optional language preference
+        user_id: User's unique identifier
     
     Returns:
-        dict: Gemstone suggestions and related information
+        dict: Gemstone suggestions with detailed descriptions
     """
     try:
         # Get user data from MongoDB
@@ -350,8 +347,7 @@ async def get_gem_suggestion(user_id: str) -> Dict[str, Any]:
         headers = {
             'Content-Type': 'application/json',
             'Origin': 'https://vedicrishi.in',
-            'Referer': 'https://vedicrishi.in/',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0'
+            'Referer': 'https://vedicrishi.in/'
         }
         
         response = requests.post(
@@ -360,8 +356,34 @@ async def get_gem_suggestion(user_id: str) -> Dict[str, Any]:
             json=payload
         )
         response.raise_for_status()
+        vedic_response = response.json()
+
+        import asyncio
         
-        return response.json()
+        async def get_gem_description(key: str, value: dict) -> None:
+            prompt = f"""You are an expert gemologist and astrologer. 
+            Provide a detailed description of the {key.lower()} gemstone and its astrological significance: {value["name"]} with semi gem {value["semi_gem"]}.
+            Include information about:
+            1. Physical properties
+            2. Astrological benefits
+            3. How to wear them
+            4. Best practices for using these gemstones
+            Format the response in clear sections."""
+
+            gemini_response = gemini_model.generate_content(prompt)
+            gemini_response.resolve()
+            value["gem_description"] = gemini_response.text
+
+        # Create tasks for each gem
+        tasks = []
+        for key, value in vedic_response["response"].items():
+            task = asyncio.create_task(get_gem_description(key, value))
+            tasks.append(task)
+            
+        # Wait for all tasks to complete
+        await asyncio.gather(*tasks)
+            
+        return vedic_response
         
     except requests.RequestException as e:
         logging.error(f"Error fetching gem suggestions: {str(e)}")
