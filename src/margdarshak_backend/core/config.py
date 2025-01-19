@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Astrology API settings
     ASTROLOGY_API_KEY: Optional[str] = None
     
+    # Gemini API settings
+    GEMINI_API_KEY: Optional[str] = None
+    
     @property
     def mongodb_connection_string(self) -> str:
         """Generate MongoDB connection string with proper escaping."""

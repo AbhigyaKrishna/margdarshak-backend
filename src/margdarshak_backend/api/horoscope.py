@@ -4,13 +4,20 @@ from datetime import datetime, time
 import logging
 import requests
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
+from PIL import Image
+import io
+import google.generativeai as genai
 
 from margdarshak_backend.models.user import UserData
 from src.margdarshak_backend.core.database import db
 from src.margdarshak_backend.core.config import settings
 
 router = APIRouter()
+
+# Configure Gemini
+genai.configure(api_key=settings.GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 class ZodiacSign(str, Enum):
     ARIES = "Aries"
@@ -39,13 +46,43 @@ location = {
     "Bengaluru": ("12.9716", "77.5946")
 }
 
-async def get_chart_data(user_id: str, chart_type: Literal["navamsa", "rasi", "d10"]) -> Dict[str, Any]:
+class ChartType(str, Enum):
+    D1 = "d1"
+    D2 = "d2"
+    D3 = "d3"
+    D4 = "d4"
+    D5 = "d5"
+    D6 = "d6"
+    D7 = "d7"
+    D8 = "d8"
+    D9 = "d9"
+    D10 = "d10"
+    D11 = "d11"
+    D12 = "d12"
+    D16 = "d16"
+    D20 = "d20"
+    D24 = "d24"
+    D27 = "d27"
+    D30 = "d30"
+    D40 = "d40"
+    D45 = "d45"
+    D60 = "d60"
+
+def chart_type_to_endpoint(chart_type: ChartType) -> str:
+    if chart_type == ChartType.D1:
+        return "horoscope-chart-url"
+    elif chart_type == ChartType.D9:
+        return "navamsa-chart-url"
+    else:
+        return f"{chart_type}-chart-url"
+
+async def get_chart_data(user_id: str, chart_type: ChartType) -> Dict[str, Any]:
     """
     Common function to get chart data from Astrology API.
     
     Args:
         user_id: User's unique identifier
-        chart_type: Type of chart to generate ("navamsa", "rasi", or "d10")
+        chart_type: Type of chart to generate (ChartType)
     
     Returns:
         dict: Response containing the chart URL
@@ -88,14 +125,7 @@ async def get_chart_data(user_id: str, chart_type: Literal["navamsa", "rasi", "d
             }
         }
         
-        # Update endpoint mapping
-        endpoints = {
-            "navamsa": "navamsa-chart-url",
-            "rasi": "horoscope-chart-url",
-            "d10": "d10-chart-url"
-        }
-        
-        url = f"https://json.freeastrologyapi.com/{endpoints[chart_type]}"
+        url = f"https://json.freeastrologyapi.com/{chart_type_to_endpoint(chart_type)}"
         
         # Call astrology API
         headers = {
@@ -214,5 +244,56 @@ async def get_monthly_horoscope(
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching horoscope: {str(e)}"
+        )
+
+class ChartAnalysisRequest(BaseModel):
+    image_url: HttpUrl
+    chart_type: ChartType
+
+@router.post("/analyze-chart")
+async def analyze_chart(request: ChartAnalysisRequest) -> Dict[str, Any]:
+    """
+    Analyze an astrological chart image using Google's Gemini AI model.
+    
+    Args:
+        request: Contains image URL of the astrological chart
+            - image_url: URL of the chart image to analyze
+    
+    Returns:
+        dict: Gemini's analysis of the astrological chart
+    """
+    try:
+        # Download image from URL
+        response = requests.get(str(request.image_url))
+        response.raise_for_status()
+        
+        if not response.content:
+            raise HTTPException(status_code=400, detail="Empty image content")
+            
+        # Convert to PIL Image
+        img = Image.open(io.BytesIO(response.content))
+        
+        # Fixed prompt for astrological chart analysis
+        prompt = f"You are an expert astrologer. Analyze this {request.chart_type} astrological chart and provide insights about the planetary positions and their significance."
+        
+        # Generate response from Gemini
+        response = model.generate_content([prompt, img])
+        response.resolve()
+        
+        return {
+            "text": response.text
+        }
+        
+    except requests.RequestException as e:
+        logging.error(f"Error downloading image: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error downloading image: {str(e)}"
+        )
+    except Exception as e:
+        logging.error(f"Error analyzing chart: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error analyzing chart: {str(e)}"
         )
 
